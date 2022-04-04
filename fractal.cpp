@@ -3,19 +3,25 @@
 #include <time.h>
 #include <math.h>
 
+#include <boost/multiprecision/cpp_dec_float.hpp>
+
+using namespace boost::multiprecision;
+
+#define FLOAT cpp_dec_float_100
 #define TITLE "Fractal"
 #define SIZE 512
 
 bool quit = false;
 
 uint fps = 60;
+uint globalTime;
 uint minframetime = 1000 / fps;
 uint16_t window_size = SIZE;
 
 int divergenceSpeed[SIZE][SIZE];
 
 struct Point {
-  double x, y;
+  FLOAT x, y;
 };
 
 // the constant that generates the fractal, can be changed
@@ -28,10 +34,11 @@ Point zoomPosition = { 0, 0 };
 Point lastZoomPosition = { 0, 0 };
 
 // the scale
-double scale = (double)window_size / 4;
+FLOAT scale = (FLOAT)window_size / 4;
 
 // number of times the fractal has been zoomed in or out
 int k = 0;
+float colorIndex = 0;
 
 void events(SDL_Window *window);
 
@@ -43,9 +50,7 @@ int computeDivergenceSpeedForPoint(int x, int y);
 // this function takes each point from the visible plane and checks if it converges or diverges
 void computeDivergenceSpeed();
 
-uint rainbow(uint n);
-
-uint wave(uint n);
+uint32_t rgb(double ratio);
 
 int main(int argc, char **argv) { 
   
@@ -87,6 +92,7 @@ int main(int argc, char **argv) {
     SDL_RenderPresent(renderer);
 
     int time = SDL_GetTicks() - start;
+    globalTime = time;
     int sleepTime = minframetime - time;
     if (sleepTime > 0) {
         SDL_Delay(sleepTime);
@@ -141,10 +147,12 @@ void events(SDL_Window *window) {
 
         lastZoomPosition = zoomPosition;
 
-        zoomPosition.x += ((double)mouseX - (double)window_size / 2) / scale;
-        zoomPosition.y += -((double)mouseY - (double)window_size / 2) / scale;
+        zoomPosition.x += ((FLOAT)mouseX - (FLOAT)window_size / 2) / scale;
+        zoomPosition.y += -((FLOAT)mouseY - (FLOAT)window_size / 2) / scale;
 
+        printf("Current time: %d\n", globalTime);
         computeDivergenceSpeed();
+        printf("Finish time: %d\n", globalTime);
         break;
       }
       // this is a scroll down
@@ -171,7 +179,7 @@ void draw(SDL_Renderer *renderer) {
     for (int y = 0; y < window_size; y++) {
       if (divergenceSpeed[x][y] > 0) {
         // set the color using rainbow funciton
-        uint color = rainbow(divergenceSpeed[x][y]);
+        uint color = rgb((double)divergenceSpeed[x][y] / 100);
 
         // decode the color to RGB values
         unsigned int red   = (color & 0x00ff0000) >> 16;
@@ -187,18 +195,18 @@ void draw(SDL_Renderer *renderer) {
 
 int computeDivergenceSpeedForPoint(int x, int y) {
   // initial Z
-  Point Z0 = {
-    ((double)x - (double)window_size / 2) / scale + zoomPosition.x,
-    -((double)y - (double)window_size / 2) / scale + zoomPosition.y
+  Point C = {
+    ((FLOAT)x - (FLOAT)window_size / 2) / scale + zoomPosition.x,
+    -((FLOAT)y - (FLOAT)window_size / 2) / scale + zoomPosition.y
   };
 
   // next Z
-  Point Z1;
+  Point Z0 = { 0, 0 }, Z1;
 
   for (int i = 1; i <= 100; i++) {
     // calculate Z1 based on the recurence formula
-    Z1.x = Z0.x * Z0.x - Z0.y * Z0.y + c.x;
-    Z1.y = 2 * Z0.x * Z0.y + c.y;
+    Z1.x = Z0.x * Z0.x - Z0.y * Z0.y + C.x;
+    Z1.y = 2 * Z0.x * Z0.y + C.y;
 
     // Check if it diverged
     if (abs(Z1.x) > 2 || abs(Z1.y) > 2) return i;
@@ -209,6 +217,30 @@ int computeDivergenceSpeedForPoint(int x, int y) {
   return 0;
 }
 
+// int computeDivergenceSpeedForPoint(int x, int y) {
+//   // initial Z
+//   Point Z0 = {
+//     ((FLOAT)x - (FLOAT)window_size / 2) / scale + zoomPosition.x,
+//     -((FLOAT)y - (FLOAT)window_size / 2) / scale + zoomPosition.y
+//   };
+
+//   // next Z
+//   Point Z1;
+
+//   for (int i = 1; i <= 100; i++) {
+//     // calculate Z1 based on the recurence formula
+//     Z1.x = Z0.x * Z0.x - Z0.y * Z0.y + c.x;
+//     Z1.y = 2 * Z0.x * Z0.y + c.y;
+
+//     // Check if it diverged
+//     if (abs(Z1.x) > 2 || abs(Z1.y) > 2) return i;
+
+//     Z0 = Z1;
+//   }
+
+//   return 0;
+// }
+
 void computeDivergenceSpeed() {
   for (int x = 0; x < window_size; x++) {
     for (int y = 0; y < window_size; y++) {
@@ -217,10 +249,40 @@ void computeDivergenceSpeed() {
   }
 }
 
-uint rainbow(uint n) {
-  return (wave(n) << 16) + (wave(n + 85) << 8) + wave(n + 170);
-}
+//input: ratio is between 0.0 to 1.0
+//output: rgb color
+uint32_t rgb(double ratio) {
+    //we want to normalize ratio so that it fits in to 6 regions
+    //where each region is 256 units long
+    int normalized = int(ratio * 256 * 6);
 
-uint wave(uint n) {
-   return int(125 * sin(n / 15) + 126);
+    //find the region for this position
+    int region = normalized / 256;
+
+    //find the distance to the start of the closest region
+    int x = normalized % 256;
+
+    uint8_t r = 0, g = 0, b = 0;
+    switch (region) {
+    case 0:
+      r = 255; g = 0;   b = 0;   g += x;
+      break;
+    case 1:
+      r = 255; g = 255; b = 0;   r -= x;
+      break;
+    case 2:
+      r = 0;   g = 255; b = 0;   b += x;
+      break;
+    case 3:
+      r = 0;   g = 255; b = 255; g -= x;
+      break;
+    case 4:
+      r = 0;   g = 0;   b = 255; r += x;
+      break;
+    case 5:
+      r = 255; g = 0;   b = 255; b -= x;
+      break;
+    }
+
+    return r + (g << 8) + (b << 16);
 }
