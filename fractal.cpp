@@ -1,3 +1,9 @@
+/*
+TO DO:
+Compile command so that it works locally
+Fix zooming for a custom SCALE
+*/
+
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include <time.h>
@@ -7,14 +13,15 @@
 
 using namespace boost::multiprecision;
 
-#define FLOAT cpp_dec_float_100
 #define TITLE "Fractal"
 #define SIZE 512
+#define FLOAT double
+#define ITERATIONS 100
+#define SCALE 2
 
 bool quit = false;
 
 uint fps = 60;
-uint globalTime;
 uint minframetime = 1000 / fps;
 uint16_t window_size = SIZE;
 
@@ -36,9 +43,8 @@ Point lastZoomPosition = { 0, 0 };
 // the scale
 FLOAT scale = (FLOAT)window_size / 4;
 
-// number of times the fractal has been zoomed in or out
+// number of times the fractal has been zoomed in or out relative to the initial position
 int k = 0;
-float colorIndex = 0;
 
 void events(SDL_Window *window);
 
@@ -50,6 +56,7 @@ int computeDivergenceSpeedForPoint(int x, int y);
 // this function takes each point from the visible plane and checks if it converges or diverges
 void computeDivergenceSpeed();
 
+// this function gives out an rgb array for a picked ratio
 uint32_t rgb(double ratio);
 
 int main(int argc, char **argv) { 
@@ -92,7 +99,6 @@ int main(int argc, char **argv) {
     SDL_RenderPresent(renderer);
 
     int time = SDL_GetTicks() - start;
-    globalTime = time;
     int sleepTime = minframetime - time;
     if (sleepTime > 0) {
         SDL_Delay(sleepTime);
@@ -102,8 +108,6 @@ int main(int argc, char **argv) {
   SDL_DestroyRenderer(renderer);
   SDL_DestroyWindow(window);
   SDL_Quit();
-
-  fclose(stdout);
 
   return 0;
 }
@@ -142,7 +146,7 @@ void events(SDL_Window *window) {
       // this is a scroll up
       if (event.wheel.y > 0) {
         printf("Scroll up\n");
-        scale *= 2; k++;
+        scale *= SCALE; k++;
         printf("Scale: 2^%d\n", k);
 
         lastZoomPosition = zoomPosition;
@@ -150,15 +154,13 @@ void events(SDL_Window *window) {
         zoomPosition.x += ((FLOAT)mouseX - (FLOAT)window_size / 2) / scale;
         zoomPosition.y += -((FLOAT)mouseY - (FLOAT)window_size / 2) / scale;
 
-        printf("Current time: %d\n", globalTime);
         computeDivergenceSpeed();
-        printf("Finish time: %d\n", globalTime);
         break;
       }
       // this is a scroll down
       else if (event.wheel.y < 0) {
         printf("Scroll down\n");
-        scale /= 2; k--;
+        scale /= SCALE; k--;
         printf("Scale: 2^%d\n", k);
 
         zoomPosition = lastZoomPosition;
@@ -179,7 +181,7 @@ void draw(SDL_Renderer *renderer) {
     for (int y = 0; y < window_size; y++) {
       if (divergenceSpeed[x][y] > 0) {
         // set the color using rainbow funciton
-        uint color = rgb((double)divergenceSpeed[x][y] / 100);
+        uint color = rgb((double)divergenceSpeed[x][y] / ITERATIONS);
 
         // decode the color to RGB values
         unsigned int red   = (color & 0x00ff0000) >> 16;
@@ -203,7 +205,7 @@ int computeDivergenceSpeedForPoint(int x, int y) {
   // next Z
   Point Z0 = { 0, 0 }, Z1;
 
-  for (int i = 1; i <= 100; i++) {
+  for (int i = 1; i <= ITERATIONS; i++) {
     // calculate Z1 based on the recurence formula
     Z1.x = Z0.x * Z0.x - Z0.y * Z0.y + C.x;
     Z1.y = 2 * Z0.x * Z0.y + C.y;
@@ -227,7 +229,7 @@ int computeDivergenceSpeedForPoint(int x, int y) {
 //   // next Z
 //   Point Z1;
 
-//   for (int i = 1; i <= 100; i++) {
+//   for (int i = 1; i <= ITERATIONS; i++) {
 //     // calculate Z1 based on the recurence formula
 //     Z1.x = Z0.x * Z0.x - Z0.y * Z0.y + c.x;
 //     Z1.y = 2 * Z0.x * Z0.y + c.y;
