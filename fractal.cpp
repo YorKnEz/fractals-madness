@@ -12,32 +12,42 @@ uint fps = 60;
 uint minframetime = 1000 / fps;
 uint16_t window_size = SIZE;
 
-int convergenceSpeed[SIZE][SIZE];
+int divergenceSpeed[SIZE][SIZE];
 
 struct Point {
   double x, y;
 };
 
+// the constant that generates the fractal, can be changed
 Point c = { -0.55, 0.56 };
+
+// the point on which to zoom
 Point zoomPosition = { 0, 0 };
+
+// the point on which it zoomed last time
 Point lastZoomPosition = { 0, 0 };
+
+// the scale
 double scale = (double)window_size / 4;
+
+// number of times the fractal has been zoomed in or out
 int k = 0;
-int roundOffPrecision = 1;
 
 void events(SDL_Window *window);
 
 void draw(SDL_Renderer *renderer);
 
-int computeConvergenceForPoint(int x, int y);
+// this function takes a point from the plane and sees if it converges or diverges
+int computeDivergenceSpeedForPoint(int x, int y);
 
-void computeConvergence();
+// this function takes each point from the visible plane and checks if it converges or diverges
+void computeDivergenceSpeed();
 
 uint rainbow(uint n);
 
 uint wave(uint n);
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv) { 
   
   SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
 
@@ -66,7 +76,7 @@ int main(int argc, char **argv) {
       SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
   // compute the convergence speed of each point before rendering
-  computeConvergence();
+  computeDivergenceSpeed();
 
   while (!quit) {
     int start = SDL_GetTicks();
@@ -101,8 +111,6 @@ void events(SDL_Window *window) {
 
     SDL_GetMouseState(&mouseX, &mouseY);
 
-    // printf("(%d, %d)\n", mouseX, mouseY);
-
     if (event.type == SDL_QUIT) {
       quit = true;
     }
@@ -111,29 +119,6 @@ void events(SDL_Window *window) {
       SDL_Keycode keycode = event.key.keysym.sym;
 
       switch (keycode) {
-      // PgUp is scale in
-      case SDLK_PAGEUP:
-        printf("PgUp key pressed.\n");
-        scale *= 2; k++;
-        printf("Scale: %f or 2^%d\n", scale, k);
-
-        lastZoomPosition = zoomPosition;
-
-        zoomPosition.x += ((double)mouseX - (double)window_size / 2) / scale;
-        zoomPosition.y += -((double)mouseY - (double)window_size / 2) / scale;
-
-        computeConvergence();
-        break;
-      // PgDown is scale out
-      case SDLK_PAGEDOWN: 
-        printf("PgDown key pressed\n");
-        scale /= 2; k--;
-        printf("Scale: %f or 2^%d\n", scale, k);
-
-        zoomPosition = lastZoomPosition;
-
-        computeConvergence();
-        break;
       // r is for resetting zoom
       case SDLK_r:
         printf("r key pressed\n");
@@ -141,7 +126,9 @@ void events(SDL_Window *window) {
         
         zoomPosition = lastZoomPosition = { 0, 0 };
 
-        computeConvergence();
+        k = 0;
+
+        computeDivergenceSpeed();
         break;
       }
     }
@@ -150,25 +137,25 @@ void events(SDL_Window *window) {
       if (event.wheel.y > 0) {
         printf("Scroll up\n");
         scale *= 2; k++;
-        printf("Scale: %f or 2^%d\n", scale, k);
+        printf("Scale: 2^%d\n", k);
 
         lastZoomPosition = zoomPosition;
 
         zoomPosition.x += ((double)mouseX - (double)window_size / 2) / scale;
         zoomPosition.y += -((double)mouseY - (double)window_size / 2) / scale;
 
-        computeConvergence();
+        computeDivergenceSpeed();
         break;
       }
       // this is a scroll down
       else if (event.wheel.y < 0) {
         printf("Scroll down\n");
         scale /= 2; k--;
-        printf("Scale: %f or 2^%d\n", scale, k);
+        printf("Scale: 2^%d\n", k);
 
         zoomPosition = lastZoomPosition;
 
-        computeConvergence();
+        computeDivergenceSpeed();
         break;
       }
     }
@@ -176,23 +163,15 @@ void events(SDL_Window *window) {
 }
 
 void draw(SDL_Renderer *renderer) {
-  // // yellowish background
-  // SDL_SetRenderDrawColor(renderer, 255, 236, 179, 255);
   SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer);
 
-  SDL_SetRenderDrawColor(renderer, 100, 221, 23, 255);
-  // // x axis
-  // SDL_RenderDrawLine(renderer, 0, window_size / 2, window_size, window_size / 2);
-  // // y axis
-  // SDL_RenderDrawLine(renderer, window_size / 2, 0, window_size / 2, window_size);
-
-  // draw the fractal based on convergenceSpeed
+  // draw the fractal based on divergenceSpeed
   for (int x = 0; x < window_size; x++) {
     for (int y = 0; y < window_size; y++) {
-      if (convergenceSpeed[x][y] > 0) {
+      if (divergenceSpeed[x][y] > 0) {
         // set the color using rainbow funciton
-        uint color = rainbow(convergenceSpeed[x][y]);
+        uint color = rainbow(divergenceSpeed[x][y]);
 
         // decode the color to RGB values
         unsigned int red   = (color & 0x00ff0000) >> 16;
@@ -206,7 +185,7 @@ void draw(SDL_Renderer *renderer) {
   }
 }
 
-int computeConvergenceForPoint(int x, int y) {
+int computeDivergenceSpeedForPoint(int x, int y) {
   // initial Z
   Point Z0 = {
     ((double)x - (double)window_size / 2) / scale + zoomPosition.x,
@@ -216,23 +195,24 @@ int computeConvergenceForPoint(int x, int y) {
   // next Z
   Point Z1;
 
-  for (int i = 1; i <= 1000; i++) {
+  for (int i = 1; i <= 100; i++) {
+    // calculate Z1 based on the recurence formula
     Z1.x = Z0.x * Z0.x - Z0.y * Z0.y + c.x;
     Z1.y = 2 * Z0.x * Z0.y + c.y;
 
-    Z0 = Z1;
-
     // Check if it diverged
     if (abs(Z1.x) > 2 || abs(Z1.y) > 2) return i;
+
+    Z0 = Z1;
   }
 
   return 0;
 }
 
-void computeConvergence() {
+void computeDivergenceSpeed() {
   for (int x = 0; x < window_size; x++) {
     for (int y = 0; y < window_size; y++) {
-      convergenceSpeed[x][y] = computeConvergenceForPoint(x, y);
+      divergenceSpeed[x][y] = computeDivergenceSpeedForPoint(x, y);
     }
   }
 }
