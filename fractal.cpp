@@ -1,9 +1,3 @@
-/*
-TO DO:
-Compile command so that it works locally
-Fix zooming for a custom SCALE
-*/
-
 #include <SDL2/SDL.h>
 #include <stdio.h>
 #include <time.h>
@@ -14,9 +8,9 @@ Fix zooming for a custom SCALE
 using namespace boost::multiprecision;
 
 #define TITLE "Fractal"
-#define SIZE 512
+#define SIZE 768
 #define FLOAT double
-#define ITERATIONS 100
+#define ITERATIONS 1000000000
 #define SCALE 2
 
 bool quit = false;
@@ -27,12 +21,15 @@ uint16_t window_size = SIZE;
 
 int divergenceSpeed[SIZE][SIZE];
 
+// int ITERATIONS = 1;
+// float frame = 0;
+
 struct Point {
   FLOAT x, y;
 };
 
 // the constant that generates the fractal, can be changed
-Point c = { -0.55, 0.56 };
+Point c = { -0.18, -0.67 };
 
 // the point on which to zoom
 Point zoomPosition = { 0, 0 };
@@ -50,8 +47,10 @@ void events(SDL_Window *window);
 
 void draw(SDL_Renderer *renderer);
 
-// this function takes a point from the plane and sees if it converges or diverges
-int computeDivergenceSpeedForPoint(int x, int y);
+// this function generates the Mandelbrot Set
+int generateMandelbrotSet(int x, int y);
+// this function generates a fractal based on a constant c
+int generateFractal(int x, int y);
 
 // this function takes each point from the visible plane and checks if it converges or diverges
 void computeDivergenceSpeed();
@@ -93,6 +92,13 @@ int main(int argc, char **argv) {
   while (!quit) {
     int start = SDL_GetTicks();
 
+    // computeDivergenceSpeed();
+
+    // if (ITERATIONS < 100) {
+    //   frame += 0.07;
+    //   ITERATIONS += (int)frame;
+    // }
+
     events(window);
     draw(renderer);
 
@@ -132,7 +138,7 @@ void events(SDL_Window *window) {
       // r is for resetting zoom
       case SDLK_r:
         printf("r key pressed\n");
-        scale = window_size / 4;
+        scale = (FLOAT)window_size / 4;
         
         zoomPosition = lastZoomPosition = { 0, 0 };
 
@@ -146,13 +152,19 @@ void events(SDL_Window *window) {
       // this is a scroll up
       if (event.wheel.y > 0) {
         printf("Scroll up\n");
+
+        Point zoomPositionPreZoom = {
+          +((FLOAT)mouseX - (FLOAT)window_size / 2) / scale + zoomPosition.x,
+          -((FLOAT)mouseY - (FLOAT)window_size / 2) / scale + zoomPosition.y
+        };
+
         scale *= SCALE; k++;
-        printf("Scale: 2^%d\n", k);
+        printf("Scale: %.2f^%d\n", (double)SCALE, k);
 
         lastZoomPosition = zoomPosition;
 
-        zoomPosition.x += ((FLOAT)mouseX - (FLOAT)window_size / 2) / scale;
-        zoomPosition.y += -((FLOAT)mouseY - (FLOAT)window_size / 2) / scale;
+        zoomPosition.x = zoomPositionPreZoom.x - ((FLOAT)mouseX - (FLOAT)window_size / 2) / scale;
+        zoomPosition.y = zoomPositionPreZoom.y + ((FLOAT)mouseY - (FLOAT)window_size / 2) / scale;
 
         computeDivergenceSpeed();
         break;
@@ -161,7 +173,7 @@ void events(SDL_Window *window) {
       else if (event.wheel.y < 0) {
         printf("Scroll down\n");
         scale /= SCALE; k--;
-        printf("Scale: 2^%d\n", k);
+        printf("Scale: %.2f^%d\n", (double)SCALE, k);
 
         zoomPosition = lastZoomPosition;
 
@@ -181,7 +193,7 @@ void draw(SDL_Renderer *renderer) {
     for (int y = 0; y < window_size; y++) {
       if (divergenceSpeed[x][y] > 0) {
         // set the color using rainbow funciton
-        uint color = rgb((double)divergenceSpeed[x][y] / ITERATIONS);
+        uint color = rgb((double)divergenceSpeed[x][y] / 100 / 1.5);
 
         // decode the color to RGB values
         unsigned int red   = (color & 0x00ff0000) >> 16;
@@ -195,22 +207,32 @@ void draw(SDL_Renderer *renderer) {
   }
 }
 
-int computeDivergenceSpeedForPoint(int x, int y) {
-  // initial Z
+int generateMandelbrotSet(int x, int y) {
+  /*
+    the way the Mandelbrot set is generated is that you take each constant C from the complex plane and you check if the sequence Zn = Zn-1^2 + C, with Z0 = 0, is a converging sequence
+    
+    the way the coloring works is that we check how fast a sequence diverges and color the pixel using a rainbow function that will take as input a number from 0 to 1
+    
+    in order to obtain this number (from 0 to 1) we take the divergenceSpeed and divide it by the number of iterations (or iterations * something if we want the colors to be more smooth)
+  */
+
+  // the constant of the sequence
   Point C = {
-    ((FLOAT)x - (FLOAT)window_size / 2) / scale + zoomPosition.x,
-    -((FLOAT)y - (FLOAT)window_size / 2) / scale + zoomPosition.y
+    (((FLOAT)x - (FLOAT)window_size / 2) / scale) + zoomPosition.x,
+    (-((FLOAT)y - (FLOAT)window_size / 2) / scale) + zoomPosition.y
   };
 
-  // next Z
+  // current Z and next Z
   Point Z0 = { 0, 0 }, Z1;
 
+  // we calculate the first 100 terms of the sequence so we can see if it diverges or converges
   for (int i = 1; i <= ITERATIONS; i++) {
-    // calculate Z1 based on the recurence formula
+    // calculate Z1 based on the recurence formula Zn = Zn-1^2 + C
+    // the formula for Z^2, where Z = a+ib is Z^2 = a^2 - b^2 + 2abi
     Z1.x = Z0.x * Z0.x - Z0.y * Z0.y + C.x;
     Z1.y = 2 * Z0.x * Z0.y + C.y;
 
-    // Check if it diverged
+    // to check if the sequence diverged, we just need to check if it got outside the plane formed by the points (-2, -2) (2, 2) (outside the screen)
     if (abs(Z1.x) > 2 || abs(Z1.y) > 2) return i;
 
     Z0 = Z1;
@@ -219,36 +241,57 @@ int computeDivergenceSpeedForPoint(int x, int y) {
   return 0;
 }
 
-// int computeDivergenceSpeedForPoint(int x, int y) {
-//   // initial Z
-//   Point Z0 = {
-//     ((FLOAT)x - (FLOAT)window_size / 2) / scale + zoomPosition.x,
-//     -((FLOAT)y - (FLOAT)window_size / 2) / scale + zoomPosition.y
-//   };
+int generateFractal(int x, int y) {
+  /*
+    the way a fractal is generates is that you take each point from the complex plane and you check if the sequence Zn = Zn-1^2 + C, with Z0 being the point we take from the plane and C an arbitrary picked constant, is a converging sequence
+    
+    the way the coloring works is that we check how fast a sequence diverges and color the pixel using a rainbow function that will take as input a number from 0 to 1
+    
+    in order to obtain this number (from 0 to 1) we take the divergenceSpeed and divide it by the number of iterations (or iterations * something if we want the colors to be more smooth)
+  */
+  // the current point picked from the plane
+  Point Z0 = {
+    (((FLOAT)x - (FLOAT)window_size / 2) / scale) + zoomPosition.x,
+    (-((FLOAT)y - (FLOAT)window_size / 2) / scale) + zoomPosition.y
+  };
 
-//   // next Z
-//   Point Z1;
+  // next Z
+  Point Z1;
 
-//   for (int i = 1; i <= ITERATIONS; i++) {
-//     // calculate Z1 based on the recurence formula
-//     Z1.x = Z0.x * Z0.x - Z0.y * Z0.y + c.x;
-//     Z1.y = 2 * Z0.x * Z0.y + c.y;
+  // we calculate the first 100 terms of the sequence so we can see if it diverges or converges
+  for (int i = 1; i <= ITERATIONS; i++) {
+    // calculate Z1 based on the recurence formula Zn = Zn-1^2 + C
+    // the formula for Z^2, where Z = a+ib is Z^2 = a^2 - b^2 + 2abi
+    Z1.x = Z0.x * Z0.x - Z0.y * Z0.y + c.x;
+    Z1.y = 2 * Z0.x * Z0.y + c.y;
 
-//     // Check if it diverged
-//     if (abs(Z1.x) > 2 || abs(Z1.y) > 2) return i;
+    // to check if the sequence diverged, we just need to check if it got outside the plane formed by the points (-2, -2) (2, 2) (outside the screen)
+    if (abs(Z1.x) > 2 || abs(Z1.y) > 2) return i;
 
-//     Z0 = Z1;
-//   }
+    Z0 = Z1;
+  }
 
-//   return 0;
-// }
+  return 0;
+}
 
 void computeDivergenceSpeed() {
+  // get time before starting the computation
+  int startTime = SDL_GetTicks();
+
+  // take each pixel from the screen and calculate it's divergence
   for (int x = 0; x < window_size; x++) {
     for (int y = 0; y < window_size; y++) {
-      divergenceSpeed[x][y] = computeDivergenceSpeedForPoint(x, y);
+      // here can be used either the generateMandelbrotSet function or the generateFractal function, which generates a fractal based on a constant c
+      divergenceSpeed[x][y] = generateFractal(x, y);
     }
   }
+
+  // get time after finishing the computation
+  int endTime = SDL_GetTicks();
+  // calculate the time elapsed in seconds
+  float timeElapsed = float(endTime - startTime) / 1000;
+
+  printf("Time elapsed: %.3fs\n", timeElapsed);
 }
 
 //input: ratio is between 0.0 to 1.0

@@ -8,12 +8,12 @@ In order to run this you need [SDL2](https://www.libsdl.org/download-2.0.php) an
 
 # Compile & run on Linux:
 
-g++ fractal.cpp -o fractal -lSDL2 && ./fractal
+g++ fractal.cpp -Iboost -lSDL2 -o fractal && ./fractal
 
 # Available commands:
 
-- PgUp / ScrollUp - zoom in
-- PgDown / Scroll Down - zoom out
+- ScrollUp - zoom in
+- Scroll Down - zoom out
 - R - reset zoom
 
 ## Note: Do not spam commands.
