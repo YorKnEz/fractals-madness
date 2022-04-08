@@ -1,6 +1,6 @@
-# fractals-madness
+# About fractals-madness
 
-A C++ program that aims to generate fractals based on a recurence of type Zn = Zo^2 + c.
+A C++ program that aims to generate the Mandelbrot Set and other fractals based on a recurence of type Zn = Zn-1^2 + c.
 
 # Prerequisites:
 
@@ -12,7 +12,7 @@ g++ fractal.cpp -Iboost -lSDL2 -o fractal && ./fractal
 
 # Available commands:
 
-- ScrollUp - zoom in
+- Scroll Up - zoom in
 - Scroll Down - zoom out
 - R - reset zoom
 
