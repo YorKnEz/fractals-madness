@@ -9,7 +9,7 @@ In order to run this you need g++.
 # Compiling and running:
 
 ```
-$ g++ src/\*.cpp -Ilib/boost `sdl2-config --libs` -o fractal
+$ g++ src/*.cpp -Ilib/boost `sdl2-config --libs` -o fractal
 $ ./fractal
 ```
 
