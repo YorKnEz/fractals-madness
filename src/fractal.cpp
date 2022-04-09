@@ -5,6 +5,7 @@ uint16_t window_size = SIZE;
 int divergenceSpeed[SIZE][SIZE];
 int precomputedDivergenceSpeed[ZOOMS][SIZE][SIZE];
 bool precompute = false;
+Point c = { -0.18, -0.67 };
 Point zoomPosition = { 0, 0 };
 Point lastZoomPosition = { 0, 0 };
 FLOAT scale = (FLOAT)window_size / 4;
@@ -81,9 +82,6 @@ void computeDivergenceSpeed() {
   // get time before starting the computation
   int startTime = SDL_GetTicks();
 
-  // the constant used by generateFractal to generate a fractal, can be changed
-  Point c = { -0.18, -0.67 };
-
   // take each pixel from the screen and calculate it's divergence
   for (int x = 0; x < window_size; x++) {
     for (int y = 0; y < window_size; y++) {
@@ -105,8 +103,7 @@ void precomputeDivergenceSpeed(int mouseX, int mouseY) {
   // get time before starting the precomputation
   int startTime = SDL_GetTicks();
 
-  // the constant used by generateFractal to generate a fractal, can be changed
-  Point c = { -0.18, -0.67 }, zoomPositionPreZoom;
+  Point zoomPositionPreZoom;
 
   for (int zoomIndex = 0; zoomIndex < ZOOMS; zoomIndex++) {
     // take each pixel from the screen and calculate it's divergence
