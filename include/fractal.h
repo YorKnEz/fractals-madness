@@ -7,13 +7,15 @@
 
 using namespace boost::multiprecision;
 
+typedef unsigned int uint;
+
 // the title of the window
 #define TITLE "Fractal"
 // the size of the window in pixels
 #define SIZE 768
 // the precision of the numbers, available options:
 // float, double, cpp_dec_float_50, cpp_dec_float_100
-#define FLOAT double
+#define FLOAT float
 // the scale of the zoom
 #define SCALE 2
 // the amount of of zooms precomputed
@@ -31,6 +33,8 @@ extern int divergenceSpeed[SIZE][SIZE];
 // the matrix which stores the divergence speed of the first zooms
 extern int precomputedDivergenceSpeed[ZOOMS][SIZE][SIZE];
 extern bool precompute;
+// the constant used by generateFractal to generate a fractal, can be changed
+extern Point c;
 // the point on which to zoom
 extern Point zoomPosition;
 // the point on which it zoomed last time
