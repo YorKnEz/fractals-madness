@@ -13,7 +13,7 @@ In order to run this you need g++.
 g++ -std=c++11 src/*.cpp -Iinclude -Ilib/boost -Ilib/SDL2/x86/include -lmingw32 -lSDL2main -lSDL2 -Llib/SDL2/x86/lib -o fractal
 
 # Linux
-g++ src/*.cpp -Ilib/boost `sdl2-config --libs` -o fractal && ./fractal
+g++ src/*.cpp -Iinclude -Ilib/boost `sdl2-config --libs` -o fractal && ./fractal
 ```
 
 # Available commands:
